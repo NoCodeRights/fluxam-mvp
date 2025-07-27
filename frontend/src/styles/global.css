@@ -1,0 +1,34 @@
+/* Botones en modo oscuro: conservar variantes */
+.dark-mode .btn-primary {
+  background-color: #0d6efd;
+  border-color: #0d6efd;
+  color: #fff;
+}
+.dark-mode .btn-success {
+  background-color: #198754;
+  border-color: #198754;
+  color: #fff;
+}
+.dark-mode .btn-danger {
+  background-color: #dc3545;
+  border-color: #dc3545;
+  color: #fff;
+}
+.dark-mode .btn-secondary {
+  background-color: #6c757d;
+  border-color: #6c757d;
+  color: #fff;
+}
+
+/* Navbar en modo oscuro */
+.dark-mode .navbar {
+  background-color: #343a40 !important;
+}
+.dark-mode .navbar .navbar-brand,
+.dark-mode .navbar .nav-link,
+.dark-mode .navbar .btn {
+  color: #f8f9fa !important;
+}
+.dark-mode .navbar .nav-link:hover {
+  color: #d1d1d1 !important;
+}
