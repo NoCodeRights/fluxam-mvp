@@ -55,7 +55,7 @@ export default function ProductsPage() {
         striped
         bordered
         hover
-        variant={user.role === 'dark' ? 'dark' : ''}
+        variant={user.theme === 'dark' ? 'dark' : ''}
       >
         <thead>
           <tr>

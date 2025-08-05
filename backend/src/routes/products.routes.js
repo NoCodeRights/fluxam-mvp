@@ -1,10 +1,21 @@
-const router = require('express').Router();
-const authJWT = require('../middlewares/authJWT');
-const roleCheck = require('../middlewares/roleCheck');
-const prod = require('../controllers/product.controller');
+// Si usas CommonJS:
+const express = require('express');
+const {
+  getAllProducts,
+  createProduct,
+  deleteProductById
+} = require('../controllers/products.controller');
+const { verifyToken } = require('../middlewares/authJWT');
 
-router.get('/', authJWT, prod.autocomplete);
-// Sólo jefe_bodega y super_admin pueden crear
-router.post('/', authJWT, roleCheck(['jefe_bodega','super_admin']), prod.create);
+const router = express.Router();
+
+// Obtener todos los productos
+router.get('/', verifyToken, getAllProducts);
+
+// Crear un producto
+router.post('/', verifyToken, createProduct);
+
+// Eliminar un producto por ID
+router.delete('/:id', verifyToken, deleteProductById);
 
 module.exports = router;
