@@ -1,16 +1,14 @@
 import axios from 'axios';
 
-const baseURL = import.meta.env.VITE_API_URL;
+const raw = import.meta.env.VITE_API_URL;
+// Si falta protocolo, lo fuerza:
+const baseURL = raw?.startsWith('http') 
+  ? raw 
+  : `https://${raw}`;
+
 console.log('⚙️ API baseURL =', baseURL);
 
-const api = axios.create({
-  baseURL  // ⬅️ aquí
-});
-
-api.interceptors.request.use(config => {
-  const token = localStorage.getItem('fluxam_token');
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
-});
+const api = axios.create({ baseURL });
+// … interceptors …
 
 export default api;
