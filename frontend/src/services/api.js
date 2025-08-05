@@ -1,10 +1,12 @@
 import axios from 'axios';
 
+const baseURL = import.meta.env.VITE_API_URL;
+console.log('⚙️ API baseURL =', baseURL);
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:4000',
+  baseURL  // ⬅️ aquí
 });
 
-// Interceptor para inyectar el token
 api.interceptors.request.use(config => {
   const token = localStorage.getItem('fluxam_token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
