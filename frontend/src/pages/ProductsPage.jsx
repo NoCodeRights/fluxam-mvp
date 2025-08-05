@@ -1,4 +1,4 @@
-import { useState, useEffect, useContext } from 'react';
+import { useState, useEffect } from 'react';
 import { Button, Table } from 'react-bootstrap';
 import api from '../services/api';
 import ProductFormModal from '../components/ProductFormModal';
@@ -9,28 +9,36 @@ export default function ProductsPage() {
   const [products, setProducts] = useState([]);
   const [showModal, setShowModal] = useState(false);
 
-  useEffect(() => {
+  // Función para cargar productos desde el backend
+  const loadProducts = () => {
     api.get('/products')
       .then(res => setProducts(res.data))
       .catch(err => console.error('Error cargando productos:', err));
+  };
+
+  // Al iniciar, cargamos la lista
+  useEffect(() => {
+    loadProducts();
   }, []);
 
   const handleSave = newProd => {
+    // insertamos en la lista sin recargar todo
     setProducts([newProd, ...products]);
   };
 
-  const handleDelete = id => {
-    if (!window.confirm('¿Estás seguro de que quieres eliminar este producto?')) {
-      return;
+  const handleDelete = async id => {
+    const ok = window.confirm('¿Estás seguro de que quieres eliminar este producto?');
+    if (!ok) return;
+
+    try {
+      // Petición DELETE al servidor
+      await api.delete(`/products/${id}`);
+      // Volvemos a cargar la lista completa para reflejar la base de datos
+      loadProducts();
+    } catch (err) {
+      console.error('Error eliminando producto:', err);
+      alert('No se pudo eliminar el producto. Revisa la consola para más detalles.');
     }
-    api.delete(`/products/${id}`)
-      .then(() => {
-        setProducts(products.filter(p => p.id !== id));
-      })
-      .catch(err => {
-        console.error('Error eliminando producto:', err);
-        // Aquí podrías mostrar una alerta más amigable al usuario
-      });
   };
 
   return (
@@ -67,7 +75,7 @@ export default function ProductsPage() {
               <td>{p.has_expiry ? 'Sí' : 'No'}</td>
               <td>
                 <Button
-                  variant="danger"
+                  variant="outline-danger"
                   size="sm"
                   onClick={() => handleDelete(p.id)}
                 >
