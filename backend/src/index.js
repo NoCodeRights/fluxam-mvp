@@ -1,37 +1,37 @@
+// backend/src/index.js
 require('dotenv').config();
-console.log('🔗 DATABASE_URL =', process.env.DATABASE_URL);
-
 const express = require('express');
 const cors = require('cors');
+
 const app = express();
-const PORT = process.env.PORT || 4000;
 
-app.get('/', (req, res) => {
-  res.status(200).send('OK');
-});
+// CORS: ajusta el origen del frontend en producción
+const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || '*';
+app.use(cors({ origin: FRONTEND_ORIGIN, credentials: false }));
 
-app.use(cors());
 app.use(express.json());
 
-// Rutas
-app.use('/auth', require('./routes/auth.routes'));
-app.use('/users', require('./routes/users.routes'));
-app.use('/companies', require('./routes/companies.routes'));
-app.use('/sites', require('./routes/sites.routes'));
-app.use('/products', require('./routes/products.routes'));
-app.use('/lots', require('./routes/lots.routes'));
-app.use('/transfers', require('./routes/transfers.routes'));
-app.use('/costs', require('./routes/costs.routes'));
-app.use('/alerts', require('./routes/alerts.routes'));
-
-app.use((err, req, res, next) => {
-  console.error(err);
-  res.status(500).json({ message: 'Error interno' });
+// Healthcheck
+app.get('/healthz', (req, res) => {
+  res.json({ ok: true, time: new Date().toISOString() });
 });
 
-app.listen(PORT, () => console.log(`🚀 Backend en puerto ${PORT}`));
+// Routers
+const productsRouter = require('./routes/products.routes');
+// (si hay más routers, importar y montar aquí)
+app.use('/api/products', productsRouter);
 
-const db = require('./config/database');
-db.query('SELECT NOW()', []).then(res => {
-  console.log('🗄️ Conexión OK, hora:', res.rows[0]);
-}).catch(err => console.error('❌ Error de conexión:', err));
+// Arranque
+const PORT = process.env.PORT || 4000;
+app.listen(PORT, async () => {
+  console.log(`🚀 Backend en puerto ${PORT}`);
+
+  // Comprobación de DB opcional
+  try {
+    const pool = require('./db'); // ajustar si archivo/exports difiere
+    const { rows } = await pool.query('SELECT NOW() as now');
+    console.log('🗄️ Conexión OK, hora:', rows[0]);
+  } catch (e) {
+    console.error('❌ Error de conexión:', e);
+  }
+});

@@ -1,3 +1,4 @@
+// frontend/src/pages/ProductsPage.jsx
 import { useState, useEffect } from 'react';
 import { Button, Table } from 'react-bootstrap';
 import api from '../services/api';
@@ -9,35 +10,42 @@ export default function ProductsPage() {
   const [products, setProducts] = useState([]);
   const [showModal, setShowModal] = useState(false);
 
-  // Función para cargar productos desde el backend
-  const loadProducts = () => {
-    api.get('/products')
-      .then(res => setProducts(res.data))
-      .catch(err => console.error('Error cargando productos:', err));
+  const loadProducts = async () => {
+    try {
+      const res = await api.get('/products');
+      setProducts(res.data || []);
+    } catch (err) {
+      console.error('Error cargando productos:', err);
+    }
   };
 
-  // Al iniciar, cargamos la lista
   useEffect(() => {
     loadProducts();
   }, []);
 
-  const handleSave = newProd => {
-    // insertamos en la lista sin recargar todo
-    setProducts([newProd, ...products]);
+  const handleSave = (newProd) => {
+    setProducts((prev) => [newProd, ...prev]);
   };
 
-  const handleDelete = async id => {
+  const handleDelete = async (id) => {
     const ok = window.confirm('¿Estás seguro de que quieres eliminar este producto?');
     if (!ok) return;
 
     try {
-      // Petición DELETE al servidor
       await api.delete(`/products/${id}`);
-      // Volvemos a cargar la lista completa para reflejar la base de datos
-      loadProducts();
+      // Remueve optimistamente sin recargar todo
+      setProducts((prev) => prev.filter((p) => p.id !== id));
+      // Para recargar desde el servidor, usar: await loadProducts();
     } catch (err) {
       console.error('Error eliminando producto:', err);
-      alert('No se pudo eliminar el producto. Revisa la consola para más detalles.');
+      const status = err?.response?.status;
+      if (status === 404) {
+        alert('No se encontró la ruta o el producto. Verifica que el backend exponga DELETE /api/products/:id');
+      } else if (status === 403) {
+        alert('No tienes permisos para eliminar este producto.');
+      } else {
+        alert('No se pudo eliminar el producto. Revisa la consola para más detalles.');
+      }
     }
   };
 
@@ -45,18 +53,13 @@ export default function ProductsPage() {
     <div className="container mt-4">
       <h2>Productos</h2>
 
-      {(user.role === 'jefe_bodega' || user.role === 'super_admin') && (
+      {(user?.role === 'jefe_bodega' || user?.role === 'super_admin') && (
         <Button className="mb-3" onClick={() => setShowModal(true)}>
           + Nuevo Producto
         </Button>
       )}
 
-      <Table
-        striped
-        bordered
-        hover
-        variant={user.theme === 'dark' ? 'dark' : ''}
-      >
+      <Table striped bordered hover>
         <thead>
           <tr>
             <th>Código</th>
@@ -67,20 +70,23 @@ export default function ProductsPage() {
           </tr>
         </thead>
         <tbody>
-          {products.map(p => (
+          {products.map((p) => (
             <tr key={p.id}>
               <td>{p.code}</td>
               <td>{p.name}</td>
               <td>{p.unit_weight}</td>
               <td>{p.has_expiry ? 'Sí' : 'No'}</td>
               <td>
-                <Button
-                  variant="outline-danger"
-                  size="sm"
-                  onClick={() => handleDelete(p.id)}
-                >
-                  🗑️
-                </Button>
+                {(user?.role === 'jefe_bodega' || user?.role === 'super_admin') && (
+                  <Button
+                    variant="outline-danger"
+                    size="sm"
+                    onClick={() => handleDelete(p.id)}
+                    title="Eliminar"
+                  >
+                    🗑️
+                  </Button>
+                )}
               </td>
             </tr>
           ))}

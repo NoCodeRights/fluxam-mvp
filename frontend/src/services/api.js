@@ -1,14 +1,22 @@
+// frontend/src/services/api.js
 import axios from 'axios';
 
-const raw = import.meta.env.VITE_API_URL;
-// Si falta protocolo, lo fuerza:
-const baseURL = raw?.startsWith('http') 
-  ? raw 
-  : `https://${raw}`;
+const rawBase = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+// quita barras finales duplicadas
+const cleanBase = rawBase.replace(/\/+$/, '');
 
-console.log('⚙️ API baseURL =', baseURL);
+console.log('⚙️ API baseURL =', cleanBase);
 
-const api = axios.create({ baseURL });
-// … interceptors …
+const api = axios.create({
+  baseURL: `${cleanBase}/api`,
+  withCredentials: false,
+  headers: { 'Content-Type': 'application/json' },
+});
+
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
 
 export default api;

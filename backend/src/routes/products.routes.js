@@ -1,21 +1,23 @@
-// Si usas CommonJS:
-const express = require('express');
+// backend/src/routes/products.routes.js
+const router = require('express').Router();
 const {
-  getAllProducts,
+  listProducts,
   createProduct,
-  deleteProductById
+  deleteProduct,
 } = require('../controllers/products.controller');
-const { verifyToken } = require('../middlewares/authJWT');
 
-const router = express.Router();
+const { requireAuth, allowRoles } = require('../middlewares/authJWT');
 
-// Obtener todos los productos
-router.get('/', verifyToken, getAllProducts);
+// Todas requieren estar autenticado
+router.use(requireAuth);
 
-// Crear un producto
-router.post('/', verifyToken, createProduct);
+// Listar
+router.get('/', listProducts);
 
-// Eliminar un producto por ID
-router.delete('/:id', verifyToken, deleteProductById);
+// Crear (solo roles permitidos)
+router.post('/', allowRoles('jefe_bodega', 'super_admin'), createProduct);
+
+// Eliminar (solo roles permitidos)
+router.delete('/:id', allowRoles('jefe_bodega', 'super_admin'), deleteProduct);
 
 module.exports = router;
