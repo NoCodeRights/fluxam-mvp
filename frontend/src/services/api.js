@@ -1,21 +1,25 @@
 // frontend/src/services/api.js
 import axios from 'axios';
 
-const rawBase = import.meta.env.VITE_API_URL || 'http://localhost:4000';
-// quita barras finales duplicadas
-const cleanBase = rawBase.replace(/\/+$/, '');
+const RAW = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+const ORIGIN = RAW.replace(/\/+$/, ''); // sin barra final
+const baseURL = `${ORIGIN}/api`;
 
-console.log('⚙️ API baseURL =', cleanBase);
+console.log(`⚙️ API baseURL = ${baseURL}`);
 
 const api = axios.create({
-  baseURL: `${cleanBase}/api`,
-  withCredentials: false,
-  headers: { 'Content-Type': 'application/json' },
+  baseURL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
 });
 
+// Adjunta el token si existe
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+  if (token && !config.headers.Authorization) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
   return config;
 });
 
