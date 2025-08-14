@@ -1,66 +1,46 @@
 // backend/src/routes/lots.routes.js
 const express = require('express');
-const { pool } = require('../db');
-const { authRequired, mustRoles } = require('../middlewares/authJWT');
-
 const router = express.Router();
+const db = require('../db');
+const { verifyToken } = require('../middlewares/authJWT');
 
-// Listar lotes (con nombre/código del producto)
-router.get('/', authRequired, async (req, res, next) => {
+// Listar lotes de la empresa (un join simple para traer nombre de producto)
+router.get('/', verifyToken, async (req, res) => {
   try {
     const { company_id } = req.user;
-    const { rows } = await pool.query(
-      `SELECT l.id, l.product_id, l.quantity, l.expiry_date,
-              p.name as product_name, p.code
+    const { rows } = await db.query(
+      `SELECT l.id, l.product_id, l.quantity, l.expiry_date, l.note,
+              p.code AS product_code, p.name AS product_name
        FROM lots l
        JOIN products p ON p.id = l.product_id
-       WHERE p.company_id=$1
+       WHERE l.company_id = $1
        ORDER BY l.id DESC`,
       [company_id]
     );
     res.json(rows);
   } catch (e) {
-    next(e);
+    console.error('GET /lots error:', e);
+    res.status(500).json({ message: 'Error interno' });
   }
 });
 
 // Crear lote
-router.post('/', authRequired, mustRoles('super_admin', 'jefe_bodega'), async (req, res, next) => {
+router.post('/', verifyToken, async (req, res) => {
   try {
-    const { product_id, quantity, expiry_date } = req.body || {};
-    if (!product_id || quantity == null) {
-      return res.status(400).json({ message: 'product_id y quantity son requeridos' });
-    }
+    const { company_id, site_id } = req.user;
+    const { product_id, quantity, expiry_date, note } = req.body;
 
-    const { rows } = await pool.query(
-      `INSERT INTO lots (product_id, quantity, expiry_date)
-       VALUES ($1,$2,$3)
-       RETURNING id, product_id, quantity, expiry_date`,
-      [product_id, quantity, expiry_date ?? null]
+    const { rows } = await db.query(
+      `INSERT INTO lots (company_id, site_id, product_id, quantity, expiry_date, note)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id, product_id, quantity, expiry_date, note`,
+      [company_id, site_id, product_id, quantity, expiry_date || null, note || null]
     );
+
     res.status(201).json(rows[0]);
   } catch (e) {
-    next(e);
-  }
-});
-
-// Usar stock de un lote (permite negativo de momento)
-router.post('/:id/use', authRequired, mustRoles('super_admin', 'jefe_bodega'), async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const { amount } = req.body || {};
-    if (!amount || amount <= 0) return res.status(400).json({ message: 'amount > 0 requerido' });
-
-    const { rows } = await pool.query(
-      `UPDATE lots SET quantity = quantity - $1 WHERE id=$2
-       RETURNING id, product_id, quantity, expiry_date`,
-      [amount, id]
-    );
-    if (rows.length === 0) return res.status(404).json({ message: 'Lote no encontrado' });
-
-    res.json(rows[0]);
-  } catch (e) {
-    next(e);
+    console.error('POST /lots error:', e);
+    res.status(500).json({ message: 'Error interno' });
   }
 });
 

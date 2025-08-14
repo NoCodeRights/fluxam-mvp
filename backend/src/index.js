@@ -6,11 +6,8 @@ const cors = require('cors');
 const morgan = require('morgan');
 
 const app = express();
-
-// === Middlewares base ===
 app.use(express.json());
 
-// CORS: aquí se pueden ajustar los orígenes permitidos si se quiere ser más estricto
 const allowedOrigins = [
   'http://localhost:5173',
   'https://fluxam-mvp.vercel.app',
@@ -18,13 +15,9 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: (origin, cb) => {
-      // Permitir requests de herramientas/SSR sin origin
       if (!origin) return cb(null, true);
       if (allowedOrigins.includes(origin)) return cb(null, true);
-      // Si se quiere permitir todo, descomentar lo siguiente y comentar el error:
-      // return cb(null, true);
-      const msg = `Origen no permitido por CORS: ${origin}`;
-      return cb(new Error(msg), false);
+      return cb(new Error(`Origen no permitido por CORS: ${origin}`), false);
     },
     credentials: true,
   })
@@ -32,64 +25,49 @@ app.use(
 
 app.use(morgan('dev'));
 
-// === Conexión a DB (opcional: log de verificación) ===
-const db = require('./db'); // debe exportar db.query(...)
+// Conexión
+const db = require('./db');
 db.query('SELECT now() as now')
-  .then(({ rows }) => {
-    console.log('🗄️ Conexión OK, hora:', rows[0].now);
-  })
-  .catch((err) => {
-    console.error('❌ Error de conexión:', err);
-  });
+  .then(({ rows }) => console.log('🗄️ Conexión OK, hora:', rows[0].now))
+  .catch((err) => console.error('❌ Error de conexión:', err));
 
-// === Adaptador de prefijo /api ===
-// Esto permite que el frontend use /api/... y que internamente
-// el backend resuelva las rutas existentes sin /api (p.ej. /products)
+// Prefijo /api
 app.use('/api', (req, _res, next) => {
   req.url = req.url.replace(/^\/api/, '');
   next();
 });
 
-// === Healthchecks (con y sin /api) ===
-app.get('/health', (_req, res) => {
-  res.json({ ok: true, now: new Date().toISOString() });
-});
-app.get('/api/health', (_req, res) => {
-  res.json({ ok: true, now: new Date().toISOString() });
-});
+// Health
+app.get('/health', (_req, res) => res.json({ ok: true, now: new Date().toISOString() }));
+app.get('/api/health', (_req, res) => res.json({ ok: true, now: new Date().toISOString() }));
 
-// === Router existentes ===
+// Helper para montar rutas con logs bonitos
+function mount(path, modPath) {
+  try {
+    const r = require(modPath);
+    app.use(path, r);
+    console.log(`➡️  Mounted ${'/api' + path} from ${modPath}`);
+  } catch (e) {
+    if (String(e).includes('Cannot find module')) {
+      console.log(`(info) Ruta ${path} omitida: no se encontró ${modPath}`);
+    } else {
+      console.log(`(error) Cargando ${modPath}: ${e}`);
+    }
+  }
+}
 
-try {
-  app.use('/auth', require('./routes/auth.routes'));
-} catch (_) {
-  console.warn('⚠️  /routes/auth.routes no encontrado (ignorado)');
-}
-try {
-  app.use('/users', require('./routes/users.routes'));
-} catch (_) {
-  console.warn('⚠️  /routes/users.routes no encontrado (ignorado)');
-}
-try {
-  app.use('/products', require('./routes/products.routes'));
-} catch (_) {
-  console.warn('⚠️  /routes/products.routes no encontrado (ignorado)');
-}
-try {
-  app.use('/lots', require('./routes/lots.routes'));
-} catch (_) {
-  console.warn('⚠️  /routes/lots.routes no encontrado (ignorado)');
-}
-// Agregar aquí otros routers que ya se tengan montados sin /api,
-// por ejemplo:
-// try { app.use('/costs', require('./routes/costs.routes')); } catch (_) { console.warn('⚠️ /routes/costs.routes no encontrado (ignorado)'); }
+mount('/auth', './routes/auth.routes');
+mount('/users', './routes/users.routes');
+mount('/products', './routes/products.routes');
+mount('/lots', './routes/lots.routes');
+mount('/costs', './routes/costs.routes');
 
-// === 404 final (con JSON) ===
+// 404 JSON
 app.use((req, res) => {
-  res.status(404).json({ message: `Not Found: ${req.method} ${req.originalUrl}` });
+  res.status(404).json({ error: 'Not Found', path: req.originalUrl });
 });
 
 const PORT = process.env.PORT || 4000;
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Backend en puerto ${PORT}`);
-});
+console.log('📡 API prefix = /api');
+console.log('🌐 CORS origin = https://fluxam-mvp.vercel.app');
+app.listen(PORT, '0.0.0.0', () => console.log(`🚀 Backend en puerto ${PORT}`));
