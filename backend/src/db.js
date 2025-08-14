@@ -3,13 +3,17 @@ const { Pool } = require('pg');
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
-  console.error('❌ Falta DATABASE_URL en las variables de entorno');
+  console.error('❌ ERROR: falta DATABASE_URL en variables de entorno');
   process.exit(1);
 }
 
 const pool = new Pool({
   connectionString,
-  ssl: { rejectUnauthorized: false }, // Neon/Railway
+  // Neon/Railway friendly
+  ssl: connectionString.includes('sslmode=require') ? { rejectUnauthorized: false } : false,
 });
 
-module.exports = { pool };
+module.exports = {
+  query: (text, params) => pool.query(text, params),
+  pool,
+};
