@@ -10,42 +10,29 @@ export default function ProductsPage() {
   const [products, setProducts] = useState([]);
   const [showModal, setShowModal] = useState(false);
 
-  const loadProducts = async () => {
-    try {
-      const res = await api.get('/products');
-      setProducts(res.data || []);
-    } catch (err) {
-      console.error('Error cargando productos:', err);
-    }
+  const loadProducts = () => {
+    api.get('/products')
+      .then(res => setProducts(res.data))
+      .catch(err => console.error('Error cargando productos:', err));
   };
 
   useEffect(() => {
     loadProducts();
   }, []);
 
-  const handleSave = (newProd) => {
-    setProducts((prev) => [newProd, ...prev]);
+  const handleSave = newProd => {
+    setProducts(prev => [newProd, ...prev]);
   };
 
   const handleDelete = async (id) => {
     const ok = window.confirm('¿Estás seguro de que quieres eliminar este producto?');
     if (!ok) return;
-
     try {
-      await api.delete(`/products/${id}`);
-      // Remueve optimistamente sin recargar todo
-      setProducts((prev) => prev.filter((p) => p.id !== id));
-      // Para recargar desde el servidor, usar: await loadProducts();
+      await api.delete(`/products/${id}`); // 👈 ojo: backticks
+      loadProducts();
     } catch (err) {
       console.error('Error eliminando producto:', err);
-      const status = err?.response?.status;
-      if (status === 404) {
-        alert('No se encontró la ruta o el producto. Verifica que el backend exponga DELETE /api/products/:id');
-      } else if (status === 403) {
-        alert('No tienes permisos para eliminar este producto.');
-      } else {
-        alert('No se pudo eliminar el producto. Revisa la consola para más detalles.');
-      }
+      alert('No se pudo eliminar el producto. Revisa la consola para más detalles.');
     }
   };
 
@@ -53,7 +40,7 @@ export default function ProductsPage() {
     <div className="container mt-4">
       <h2>Productos</h2>
 
-      {(user?.role === 'jefe_bodega' || user?.role === 'super_admin') && (
+      {(user.role === 'jefe_bodega' || user.role === 'super_admin') && (
         <Button className="mb-3" onClick={() => setShowModal(true)}>
           + Nuevo Producto
         </Button>
@@ -70,14 +57,14 @@ export default function ProductsPage() {
           </tr>
         </thead>
         <tbody>
-          {products.map((p) => (
+          {products.map(p => (
             <tr key={p.id}>
               <td>{p.code}</td>
               <td>{p.name}</td>
               <td>{p.unit_weight}</td>
               <td>{p.has_expiry ? 'Sí' : 'No'}</td>
               <td>
-                {(user?.role === 'jefe_bodega' || user?.role === 'super_admin') && (
+                {(user.role === 'jefe_bodega' || user.role === 'super_admin') && (
                   <Button
                     variant="outline-danger"
                     size="sm"
