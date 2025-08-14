@@ -1,50 +1,95 @@
 // backend/src/index.js
 require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
-const { pool } = require('./db');
-
-const authRoutes = require('./routes/auth.routes');
-const productsRoutes = require('./routes/products.routes');
-const lotsRoutes = require('./routes/lots.routes');
-const alertsRoutes = require('./routes/alerts.routes');
 
 const app = express();
 
-// Middlewares
-app.use(cors({ origin: true, credentials: true }));
+// === Middlewares base ===
 app.use(express.json());
+
+// CORS: aquí se pueden ajustar los orígenes permitidos si se quiere ser más estricto
+const allowedOrigins = [
+  'http://localhost:5173',
+  'https://fluxam-mvp.vercel.app',
+];
+app.use(
+  cors({
+    origin: (origin, cb) => {
+      // Permitir requests de herramientas/SSR sin origin
+      if (!origin) return cb(null, true);
+      if (allowedOrigins.includes(origin)) return cb(null, true);
+      // Si se quiere permitir todo, descomentar lo siguiente y comentar el error:
+      // return cb(null, true);
+      const msg = `Origen no permitido por CORS: ${origin}`;
+      return cb(new Error(msg), false);
+    },
+    credentials: true,
+  })
+);
+
 app.use(morgan('dev'));
 
-// Healthchecks
-app.get('/healthz', (req, res) => res.json({ ok: true }));
-app.get('/', (req, res) => res.send('FluxAm API is running'));
-
-// API prefix
-app.use('/api/auth', authRoutes);
-app.use('/api/products', productsRoutes);
-app.use('/api/lots', lotsRoutes);
-app.use('/api/alerts', alertsRoutes);
-
-// 404 handler
-app.use((req, res) => res.status(404).json({ message: 'Not Found' }));
-
-// Error handler
-app.use((err, req, res, next) => {
-  console.error('💥 Uncaught error:', err);
-  res.status(500).json({ message: 'Error interno' });
-});
-
-const port = process.env.PORT || 4000;
-app.listen(port, async () => {
-  console.log(`🚀 Backend en puerto ${port}`);
-  try {
-    const { rows } = await pool.query('SELECT NOW() as now');
+// === Conexión a DB (opcional: log de verificación) ===
+const db = require('./db'); // debe exportar db.query(...)
+db.query('SELECT now() as now')
+  .then(({ rows }) => {
     console.log('🗄️ Conexión OK, hora:', rows[0].now);
-  } catch (e) {
-    console.error('❌ Error DB', e);
-  }
+  })
+  .catch((err) => {
+    console.error('❌ Error de conexión:', err);
+  });
+
+// === Adaptador de prefijo /api ===
+// Esto permite que el frontend use /api/... y que internamente
+// el backend resuelva las rutas existentes sin /api (p.ej. /products)
+app.use('/api', (req, _res, next) => {
+  req.url = req.url.replace(/^\/api/, '');
+  next();
 });
 
-module.exports = app;
+// === Healthchecks (con y sin /api) ===
+app.get('/health', (_req, res) => {
+  res.json({ ok: true, now: new Date().toISOString() });
+});
+app.get('/api/health', (_req, res) => {
+  res.json({ ok: true, now: new Date().toISOString() });
+});
+
+// === Router existentes ===
+
+try {
+  app.use('/auth', require('./routes/auth.routes'));
+} catch (_) {
+  console.warn('⚠️  /routes/auth.routes no encontrado (ignorado)');
+}
+try {
+  app.use('/users', require('./routes/users.routes'));
+} catch (_) {
+  console.warn('⚠️  /routes/users.routes no encontrado (ignorado)');
+}
+try {
+  app.use('/products', require('./routes/products.routes'));
+} catch (_) {
+  console.warn('⚠️  /routes/products.routes no encontrado (ignorado)');
+}
+try {
+  app.use('/lots', require('./routes/lots.routes'));
+} catch (_) {
+  console.warn('⚠️  /routes/lots.routes no encontrado (ignorado)');
+}
+// Agregar aquí otros routers que ya se tengan montados sin /api,
+// por ejemplo:
+// try { app.use('/costs', require('./routes/costs.routes')); } catch (_) { console.warn('⚠️ /routes/costs.routes no encontrado (ignorado)'); }
+
+// === 404 final (con JSON) ===
+app.use((req, res) => {
+  res.status(404).json({ message: `Not Found: ${req.method} ${req.originalUrl}` });
+});
+
+const PORT = process.env.PORT || 4000;
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Backend en puerto ${PORT}`);
+});
